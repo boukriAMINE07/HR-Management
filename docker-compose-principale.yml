@@ -1,0 +1,93 @@
+version: '3'
+services:
+  eureka-server-amigos:
+    container_name: eureka-server-amigos
+    build:
+      context: ./discoveryserver
+      dockerfile: Dockerfile
+    networks:
+      - gestion_rh_network
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_APPLICATION_NAME: discovery-server-service
+      SERVER_PORT: 8761
+      EUREKA_CLIENT_REGISTER-WITH-EUREKA: "true"
+      EUREKA_CLIENT_FETCH-REGISTRY: "true"
+      EUREKA_CLIENT_HEALTHCHECK_ENABLED: "true"
+
+  api-gateway-amigos:
+    container_name: api-gateway-amigos
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    networks:
+      - gestion_rh_network
+    ports:
+      - "8888:8080"
+    depends_on:
+      - eureka-server-amigos
+    environment:
+      SPRING_APPLICATION_NAME: api-gateway-amigos-service
+      SERVER_PORT: 8080
+
+
+  pgadmin-amigos:
+    container_name: pgadmin-amigos
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: saadkammouss@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: pgadmin-employee
+    ports:
+      - "5050:80"
+    networks:
+      - gestion_rh_network
+
+
+  keycloak-db-amigos:
+    container_name: keycloak-db-amigos
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: keycloak
+    volumes:
+      - ./data_amigos/keycloak_db_data:/var/lib/postgresql/data
+    command: [ "postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "log_statement=all" ]
+    networks:
+      - gestion_rh_network
+    ports:
+      - "5432:5432"
+
+  keycloak-amigos:
+    container_name: keycloak-amigos
+    image: quay.io/keycloak/keycloak:21.1.1
+    restart: always
+    hostname: keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db-amigos/keycloak
+      KC_DB_URL_HOST: keycloak-db-amigos
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_URL_PORT: 5432
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+    depends_on:
+      - keycloak-db-amigos
+    ports:
+      - "8089:8080"
+    networks:
+      - gestion_rh_network
+    command:
+      - start-dev --import-realm
+    volumes:
+      - ./amigos-realm.json:/opt/keycloak/data/import/amigos-realm.json
+
+
+networks:
+  gestion_rh_network:
+    driver: bridge
+    external: true

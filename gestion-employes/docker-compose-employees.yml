@@ -1,0 +1,47 @@
+version: '3'
+services:
+  postgres_employees_amigos:
+    image: postgres:13
+    container_name: postgres_employees_amigos
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: employees_management_amigos
+    volumes:
+      - ./data_amigos/employees_db_data:/var/lib/postgresql/data
+    command: [ "postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "log_statement=all" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    networks:
+      - gestion_rh_network
+
+  employees_management_amigos_ms:
+    container_name: employees_management_amigos_ms
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      SPRING_APPLICATION_NAME: employee-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_employees_amigos:5432/employees_management_amigos
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/amigos-realm
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/amigos-realm/protocol/openid-connect/certs
+      SPRING_SECURITY_LOG_LEVEL: DEBUG  # Add this line to set the logging level
+    depends_on:
+      - postgres_employees_amigos
+    ports:
+      - "8087:8080"
+    networks:
+      - gestion_rh_network
+
+networks:
+  gestion_rh_network:
+    external: true
